@@ -2,10 +2,10 @@ import { Page } from 'puppeteer';
 import { getPage } from './browser';
 import { OperationResult } from './types';
 import { saveAmazonSession } from './session-manager';
+import { getAmazonBaseUrl } from './config';
 
-const AMAZON_DOMAIN = process.env.AMAZON_DOMAIN || 'amazon.com';
-const WHOLEFOODS_STOREFRONT = `https://www.${AMAZON_DOMAIN}/alm/storefront?almBrandId=VUZHIFdob2xlIEZvb2Rz`;
-const WHOLEFOODS_CART = `https://www.${AMAZON_DOMAIN}/cart/localmarket?almBrandId=VUZHIFdob2xlIEZvb2Rz`;
+const getWholeFoodsStorefront = () => `${getAmazonBaseUrl()}/alm/storefront?almBrandId=VUZHIFdob2xlIEZvb2Rz`;
+const getWholeFoodsCartUrl = () => `${getAmazonBaseUrl()}/cart/localmarket?almBrandId=VUZHIFdob2xlIEZvb2Rz`;
 
 async function waitForElement(page: Page, selector: string, timeout = 8000): Promise<boolean> {
   try {
@@ -20,7 +20,7 @@ async function waitForElement(page: Page, selector: string, timeout = 8000): Pro
  * Ensure we're on the Whole Foods storefront, handling any zip code / address prompts.
  */
 async function ensureWholeFoodsStorefront(page: Page): Promise<void> {
-  await page.goto(WHOLEFOODS_STOREFRONT, { waitUntil: 'networkidle2' });
+  await page.goto(getWholeFoodsStorefront(), { waitUntil: 'networkidle2' });
 
   // Check for address/zip code modal and dismiss if present
   const addressModal = await waitForElement(page, '[data-testid="address-modal"], .alm-location-modal, #alm-toast-container', 3000);
@@ -111,7 +111,7 @@ export async function addToWholeFoodsCart(params: { query?: string; asin?: strin
 
     if (params.asin) {
       // Navigate to the product page with the Whole Foods brand ID for delivery context
-      await page.goto(`https://www.${AMAZON_DOMAIN}/dp/${params.asin}?almBrandId=VUZHIFdob2xlIEZvb2Rz`, { waitUntil: 'networkidle2' });
+      await page.goto(`${getAmazonBaseUrl()}/dp/${params.asin}?almBrandId=VUZHIFdob2xlIEZvb2Rz`, { waitUntil: 'networkidle2' });
       // Wait for the product page to fully render (buy box loads asynchronously)
       await waitForElement(page, '#productTitle, #add-to-cart-button-grocery, #add-to-cart-button', 10000);
     } else if (params.query) {
@@ -233,7 +233,7 @@ export async function getWholeFoodsCart(): Promise<OperationResult> {
   try {
     const page = await getPage();
 
-    await page.goto(WHOLEFOODS_CART, { waitUntil: 'networkidle2' });
+    await page.goto(getWholeFoodsCartUrl(), { waitUntil: 'networkidle2' });
 
     // Also try the regular cart with fresh filter
     // Amazon sometimes redirects fresh cart to the main cart page

@@ -13,7 +13,7 @@ Thanks for your interest in contributing! This guide will help you get started.
 
 - **Build**: `npm run build`
 - **Start**: `npm start`
-- **Tunnel**: `npm run tunnel` (requires ngrok)
+- **MCP server**: `npm start`
 
 ## Submitting Changes
 
@@ -31,7 +31,7 @@ Thanks for your interest in contributing! This guide will help you get started.
 
 ## Reporting Issues
 
-Use [GitHub Issues](https://github.com/madebydia/amazon-mcp-server/issues) to report bugs or suggest features. Include:
+Use [GitHub Issues](https://github.com/ronnie3786/amazon-mcp-server/issues) to report bugs or suggest features. Include:
 - Clear description of the issue
 - Steps to reproduce
 - Expected vs actual behavior

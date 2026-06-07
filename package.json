@@ -1,10 +1,11 @@
 {
-  "name": "amazon-mcp-server",
+  "name": "amazon-cart-cli",
   "version": "1.0.0",
-  "description": "MCP server for Amazon cart automation",
+  "description": "Local CLI and MCP server for Amazon cart automation",
   "author": "Diana Park <diana@madebydia.com> (https://madebydia.com)",
   "license": "MIT",
   "keywords": [
+    "cli",
     "mcp",
     "amazon",
     "cart",
@@ -14,18 +15,21 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/madebydia/amazon-mcp-server.git"
+    "url": "git+https://github.com/ronnie3786/amazon-mcp-server.git"
   },
-  "homepage": "https://github.com/madebydia/amazon-mcp-server#readme",
+  "homepage": "https://github.com/ronnie3786/amazon-mcp-server#readme",
   "bugs": {
-    "url": "https://github.com/madebydia/amazon-mcp-server/issues"
+    "url": "https://github.com/ronnie3786/amazon-mcp-server/issues"
   },
   "main": "dist/server.js",
+  "bin": {
+    "amazon-cart": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "ts-node src/server.ts",
-    "tunnel": "ngrok http 3000"
+    "cli": "node dist/cli.js",
+    "dev": "ts-node src/server.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

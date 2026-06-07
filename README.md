@@ -1,6 +1,6 @@
-# Amazon Cart MCP Server
+# Amazon Cart CLI
 
-Local MCP (Model Context Protocol) server that enables AI assistants to interact with your personal Amazon cart through browser automation. Works with [Claude Desktop](https://claude.ai/download), [Poke](https://poke.com), and any MCP-compatible client.
+Local CLI and MCP server for interacting with your personal Amazon cart through browser automation. The CLI is the default workflow in this fork; the MCP server is still available for local MCP-compatible clients.
 
 ## ⚠️ Important Disclaimer
 
@@ -20,8 +20,10 @@ By using this software, you acknowledge and accept these risks.
 - 🔍 **Search Amazon** - Find products by search query
 - 🛒 **Add to Cart** - Add items to your Amazon cart automatically
 - 👀 **View Cart** - Check current cart contents and subtotal
+- 🥬 **Whole Foods / Fresh** - Search, add to cart, and view grocery cart contents
 - 🔐 **Login Persistence** - Session saved locally for seamless use
-- 🌐 **Secure Access** - Bearer token authentication via ngrok tunnel
+- 💻 **Local CLI** - Use the same operations without exposing a network server
+- 🌐 **Optional MCP Server** - Bearer-token-protected MCP endpoint bound to localhost by default
 
 ## Quick Start
 
@@ -29,13 +31,12 @@ By using this software, you acknowledge and accept these risks.
 
 - Node.js v20 or higher
 - npm or yarn
-- ngrok account (free tier works)
 
 ### Installation
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/madebydia/amazon-mcp-server.git
+   git clone https://github.com/ronnie3786/amazon-mcp-server.git
    cd amazon-mcp-server
    ```
 
@@ -46,12 +47,12 @@ By using this software, you acknowledge and accept these risks.
 
 3. **Configure environment:**
    ```bash
-   cp .env .env.local  # Optional: keep your settings separate
+   cp .env.example .env
    ```
 
    Edit `.env` and set:
-   - `AUTH_TOKEN` - Generate a secure random token (required)
-   - `HEADLESS=false` - For first-time login
+   - `AUTH_TOKEN` - Generate a secure random token if you plan to run the MCP server
+   - `HEADLESS=false` - For first-time login and visible browser use
    - `AMAZON_DOMAIN=amazon.com` - Or your local Amazon domain
 
 4. **Build the project:**
@@ -59,39 +60,53 @@ By using this software, you acknowledge and accept these risks.
    npm run build
    ```
 
-5. **Start the server:**
+5. **Log in once:**
    ```bash
-   npm start
+   npm run cli -- login
    ```
 
-6. **First-time login:**
-   - A Chrome browser window will open
-   - Log into your Amazon account manually
-   - Session will be saved in `./user-data/`
-   - **After logging in once**, you can:
-     - Stop the server (Ctrl+C)
-     - Set `HEADLESS=true` in `.env`
-     - Restart with headless mode
+   A Chrome browser window opens. Log into Amazon manually, complete MFA/CAPTCHA if needed, then press Enter in the terminal.
 
-7. **Expose via ngrok (in a separate terminal):**
+6. **Use the CLI:**
    ```bash
-   npm run tunnel
-   # Note the HTTPS URL (e.g., https://abc123.ngrok.io)
+   npm run cli -- status
+   npm run cli -- search "wireless mouse"
+   npm run cli -- add --asin B000000000 --quantity 1
+   npm run cli -- cart
+   npm run cli -- wholefoods search "strawberries"
    ```
 
-## Connecting to Poke
+## CLI Commands
 
-1. Copy your ngrok URL from the terminal
-2. In Poke, add a custom MCP integration:
-   - **URL:** `https://your-ngrok-url.ngrok.io/sse`
-   - **API Key:** Your `AUTH_TOKEN` from `.env`
-   - **Type:** MCP Server
+```bash
+amazon-cart login [--headless]
+amazon-cart status [--json]
+amazon-cart search <query> [--json]
+amazon-cart add [--asin ASIN | --query QUERY | <query-or-asin>] [--quantity N] [--json]
+amazon-cart cart [--json]
+amazon-cart save-session [--json]
+amazon-cart wholefoods search <query> [--json]
+amazon-cart wholefoods add [--asin ASIN | --query QUERY | <query-or-asin>] [--quantity N] [--json]
+amazon-cart wholefoods cart [--json]
+```
 
-3. **Important:** Always use the `/sse` endpoint!
+When installed globally or linked with `npm link`, the executable is `amazon-cart`. During development, use `npm run cli -- <command>`.
 
-4. Test the connection by asking Poke:
-   - "What tools do you have?"
-   - "Search Amazon for wireless mouse"
+## Optional MCP Server
+
+The server binds to `127.0.0.1` by default and requires `AUTH_TOKEN` for `/mcp` access. Set `ALLOW_UNAUTHENTICATED=true` only for short-lived local testing.
+
+```bash
+npm start
+```
+
+MCP endpoint:
+
+```text
+http://127.0.0.1:3000/mcp
+```
+
+If you expose this server through a tunnel, protect both the tunnel URL and bearer token.
 
 ## Connecting to Claude Desktop
 
@@ -107,6 +122,7 @@ By using this software, you acknowledge and accept these risks.
       "args": ["/absolute/path/to/amazon-mcp-server/dist/server.js"],
       "env": {
         "AUTH_TOKEN": "your-token-here",
+        "HOST": "127.0.0.1",
         "HEADLESS": "true",
         "AMAZON_DOMAIN": "amazon.com"
       }
@@ -128,25 +144,16 @@ By using this software, you acknowledge and accept these risks.
 | `add_to_cart` | Add a product to cart | `query` or `asin`, `quantity` (optional) |
 | `view_cart` | View current cart contents | None |
 | `check_login` | Verify Amazon login status | None |
+| `save_session` | Save Amazon cookies from the current browser session | None |
+| `search_wholefoods` | Search Whole Foods / Fresh products | `query` (required) |
+| `add_to_wholefoods_cart` | Add grocery item to Whole Foods / Fresh cart | `query` or `asin`, `quantity` (optional) |
+| `view_wholefoods_cart` | View Whole Foods / Fresh cart contents | None |
 
 ## Architecture
 
 ```
 ┌─────────────────┐
-│   Poke.com      │ (Remote AI Assistant)
-│   (Cloud)       │
-└────────┬────────┘
-         │ HTTPS
-         ↓
-┌─────────────────┐
-│     ngrok       │ (Secure Tunnel)
-│  Public HTTPS   │
-└────────┬────────┘
-         │ Local
-         ↓
-┌─────────────────┐
-│   MCP Server    │ (Port 3000)
-│   SSE + HTTP    │
+│   CLI / MCP     │ (Local process)
 └────────┬────────┘
          │
          ↓
@@ -164,20 +171,26 @@ By using this software, you acknowledge and accept these risks.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `HOST` | `127.0.0.1` | MCP server bind host |
 | `PORT` | `3000` | Server port |
-| `AUTH_TOKEN` | *required* | Bearer token for authentication |
+| `AUTH_TOKEN` | *required for MCP* | Bearer token for MCP authentication |
+| `ALLOW_UNAUTHENTICATED` | `false` | Allow unauthenticated MCP access for short-lived local testing only |
 | `AMAZON_DOMAIN` | `amazon.com` | Amazon domain (e.g., amazon.co.uk) |
 | `HEADLESS` | `false` | Run browser in headless mode |
 | `USER_DATA_DIR` | `./user-data` | Chrome user data directory |
+| `EXTEND_SESSION_COOKIES` | `false` | Optionally extend session cookies when saving them |
 
 ### Example .env
 
 ```bash
+HOST=127.0.0.1
 PORT=3000
 AUTH_TOKEN=a1b2c3d4-e5f6-4789-a012-3b4c5d6e7f8a
+ALLOW_UNAUTHENTICATED=false
 AMAZON_DOMAIN=amazon.com
 HEADLESS=false
 USER_DATA_DIR=./user-data
+EXTEND_SESSION_COOKIES=false
 ```
 
 ## Security
@@ -189,10 +202,10 @@ USER_DATA_DIR=./user-data
    - Use a cryptographically secure random token
    - Generate with: `openssl rand -hex 32`
 
-2. **ngrok Security**
-   - Free tier URLs are public but unguessable
-   - Consider ngrok's authentication features for extra security
-   - Upgrade to ngrok paid plan for reserved domains and IP restrictions
+2. **Remote Tunnel Security**
+   - Prefer the CLI or localhost-only MCP server
+   - If you expose MCP remotely, protect both the URL and bearer token
+   - Consider tunnel-level authentication and IP restrictions
 
 3. **Session Data**
    - Login sessions stored in `./user-data/`
@@ -202,8 +215,8 @@ USER_DATA_DIR=./user-data
 
 4. **Network Security**
    - Server only accepts authenticated requests
-   - All traffic through ngrok is HTTPS encrypted
-   - Local server binds to localhost only
+   - Local server binds to `127.0.0.1` by default
+   - CLI commands do not start a network server
 
 5. **Browser Automation**
    - Puppeteer runs with sandbox disabled (required for some systems)
@@ -213,7 +226,7 @@ USER_DATA_DIR=./user-data
 ### Best Practices
 
 - ✅ Use strong, unique AUTH_TOKEN
-- ✅ Never share your ngrok URL publicly
+- ✅ Do not expose the MCP server publicly without additional protection
 - ✅ Regularly rotate AUTH_TOKEN
 - ✅ Monitor server logs for suspicious activity
 - ✅ Keep dependencies updated (`npm audit`)
@@ -222,32 +235,30 @@ USER_DATA_DIR=./user-data
 
 ## Troubleshooting
 
-### Tools Not Showing in Poke
+### CLI Cannot Find the Command
+
+Use `npm run cli -- <command>` during development, or run `npm link` after building to install the `amazon-cart` command.
+
+### MCP Tools Not Showing
 
 1. Restart the server
-2. Delete and re-add the MCP connection in Poke
+2. Delete and re-add the MCP connection in your client
 3. Check server logs for `tools/list` request
-4. Verify ngrok tunnel is active
+4. Verify the client is using `http://127.0.0.1:3000/mcp`
 
 ### Items Not Added to Cart
 
 1. Verify you're logged into Amazon:
    - Check the browser window (if visible)
-   - Or ask Poke to run `check_login`
+   - Or run `npm run cli -- status`
 2. If not logged in:
    - Set `HEADLESS=false`
    - Restart server
    - Log in manually in the browser window
 
-### Connection Keeps Dropping
-
-- Normal behavior - Poke reconnects as needed
-- If persistent, check ngrok connection: `curl https://your-url.ngrok.io/health`
-
 ### Computer Sleep Mode
 
-- Server and ngrok pause when computer sleeps
-- Poke will reconnect automatically on wake
+- Browser automation pauses when the computer sleeps
 - To prevent sleep: Run `caffeinate` in a separate terminal (macOS)
 
 ## Development
@@ -257,9 +268,13 @@ USER_DATA_DIR=./user-data
 ```
 amazon-mcp/
 ├── src/
-│   ├── server.ts       # MCP server + SSE implementation
+│   ├── server.ts       # MCP server implementation
+│   ├── cli.ts          # Local command-line interface
+│   ├── config.ts       # Shared environment/config helpers
 │   ├── amazon.ts       # Amazon automation logic
+│   ├── wholefoods.ts   # Whole Foods / Fresh automation logic
 │   ├── browser.ts      # Puppeteer browser management
+│   ├── session-manager.ts
 │   └── types.ts        # TypeScript interfaces
 ├── dist/               # Compiled JavaScript (gitignored)
 ├── user-data/          # Chrome session data (gitignored)
@@ -271,6 +286,7 @@ amazon-mcp/
 
 ```bash
 npm run dev    # Uses ts-node, no build required
+npm run cli -- status
 ```
 
 ### Building
@@ -284,7 +300,7 @@ npm run build  # Compiles TypeScript to dist/
 ### Health Check
 
 ```bash
-curl http://localhost:3000/health
+curl http://127.0.0.1:3000/health
 ```
 
 Expected response:
@@ -292,14 +308,12 @@ Expected response:
 {"status":"ok","server":"amazon-mcp-server"}
 ```
 
-### Test SSE Connection
+### Test MCP Connection
 
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-  http://localhost:3000/sse
+  http://127.0.0.1:3000/mcp
 ```
-
-Should maintain an open connection with heartbeats.
 
 ## Compliance Notes
 
@@ -333,13 +347,13 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- 🐛 **Issues:** [GitHub Issues](https://github.com/madebydia/amazon-mcp-server/issues)
+- 🐛 **Issues:** [GitHub Issues](https://github.com/ronnie3786/amazon-mcp-server/issues)
 - 📧 **Contact:** via GitHub
 
 ## Author
 
-Created by [@madebydia](https://github.com/madebydia)
+Forked from [@madebydia/amazon-mcp-server](https://github.com/madebydia/amazon-mcp-server).
 
 ---
 
-**Note:** Keep your computer awake while running the server. The ngrok tunnel and SSE connections are sensitive to network interruptions.
+**Note:** Keep your computer awake while running long browser automation sessions.

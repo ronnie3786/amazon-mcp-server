@@ -12,11 +12,14 @@ import { searchProducts, addToCart, getCart, checkLoginStatus } from './amazon';
 import { searchWholeFoods, addToWholeFoodsCart, getWholeFoodsCart } from './wholefoods';
 import { closeBrowser, getBrowser, getPage } from './browser';
 import { saveAmazonSession, restoreAmazonSession } from './session-manager';
+import { getAmazonDomain, getServerHost } from './config';
 
 dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 const AUTH_TOKEN = process.env.AUTH_TOKEN;
+const HOST = getServerHost();
+const ALLOW_UNAUTHENTICATED = process.env.ALLOW_UNAUTHENTICATED === 'true';
 
 // Tool definitions (single source of truth)
 const TOOLS = [
@@ -165,12 +168,17 @@ app.disable('x-powered-by');
 
 // Authentication middleware
 const authenticate = (req: Request, res: Response, next: express.NextFunction) => {
-  const headerToken = req.headers.authorization?.replace(/^Bearer\s+/i, '');
-  const queryToken = req.query.token as string;
-  const providedToken = headerToken || queryToken;
+  const providedToken = req.headers.authorization?.replace(/^Bearer\s+/i, '');
 
   if (!AUTH_TOKEN) {
-    next();
+    if (ALLOW_UNAUTHENTICATED) {
+      next();
+      return;
+    }
+
+    res.status(500).json({
+      error: 'AUTH_TOKEN is required for MCP access. Set ALLOW_UNAUTHENTICATED=true only for local development.',
+    });
     return;
   }
 
@@ -233,7 +241,7 @@ app.all('/mcp', authenticate, express.json(), async (req: Request, res: Response
     } else {
       res.status(400).json({
         jsonrpc: '2.0',
-        error: { code: -32000, message: 'Missing or invalid session ID for GET SSE stream.' },
+        error: { code: -32000, message: 'Missing or invalid session ID for streamable HTTP session.' },
         id: null,
       });
     }
@@ -256,16 +264,16 @@ app.all('/mcp', authenticate, express.json(), async (req: Request, res: Response
 });
 
 // Start server
-app.listen(PORT, async () => {
-  console.log(`Amazon MCP Server running on port ${PORT}`);
-  console.log(`MCP endpoint: http://localhost:${PORT}/mcp`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+app.listen(Number(PORT), HOST, async () => {
+  console.log(`Amazon MCP Server running on ${HOST}:${PORT}`);
+  console.log(`MCP endpoint: http://${HOST}:${PORT}/mcp`);
+  console.log(`Health check: http://${HOST}:${PORT}/health`);
 
   console.log('\nInitializing browser...');
   try {
     await getBrowser();
     const page = await getPage();
-    const AMAZON_DOMAIN = process.env.AMAZON_DOMAIN || 'amazon.com';
+    const AMAZON_DOMAIN = getAmazonDomain();
 
     const restored = await restoreAmazonSession(page);
     await page.goto(`https://www.${AMAZON_DOMAIN}`, { waitUntil: 'networkidle2' });

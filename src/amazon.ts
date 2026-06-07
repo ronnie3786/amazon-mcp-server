@@ -2,9 +2,9 @@ import { Page } from 'puppeteer';
 import { getPage } from './browser';
 import { AddToCartParams, CartItem, SearchResult, OperationResult } from './types';
 import { saveAmazonSession } from './session-manager';
+import { getAmazonBaseUrl } from './config';
 
-const AMAZON_DOMAIN = process.env.AMAZON_DOMAIN || 'amazon.com';
-const BASE_URL = `https://www.${AMAZON_DOMAIN}`;
+const getBaseUrl = () => getAmazonBaseUrl();
 
 async function waitForElement(page: Page, selector: string, timeout = 5000): Promise<boolean> {
   try {
@@ -19,7 +19,7 @@ export async function searchProducts(query: string): Promise<OperationResult> {
   try {
     const page = await getPage();
 
-    await page.goto(BASE_URL, { waitUntil: 'networkidle2' });
+    await page.goto(getBaseUrl(), { waitUntil: 'networkidle2' });
 
     // Search for product
     await page.waitForSelector('#twotabsearchtextbox');
@@ -75,10 +75,10 @@ export async function addToCart(params: AddToCartParams): Promise<OperationResul
 
     // Navigate to product page
     if (params.asin) {
-      await page.goto(`${BASE_URL}/dp/${params.asin}`, { waitUntil: 'networkidle2' });
+      await page.goto(`${getBaseUrl()}/dp/${params.asin}`, { waitUntil: 'networkidle2' });
     } else if (params.query) {
       // Search first, then click first result
-      await page.goto(BASE_URL, { waitUntil: 'networkidle2' });
+      await page.goto(getBaseUrl(), { waitUntil: 'networkidle2' });
       await page.waitForSelector('#twotabsearchtextbox');
       await page.type('#twotabsearchtextbox', params.query);
       await page.click('#nav-search-submit-button');
@@ -141,7 +141,7 @@ export async function getCart(): Promise<OperationResult> {
   try {
     const page = await getPage();
 
-    await page.goto(`${BASE_URL}/gp/cart/view.html`, { waitUntil: 'networkidle2' });
+    await page.goto(`${getBaseUrl()}/gp/cart/view.html`, { waitUntil: 'networkidle2' });
 
     // Check if cart is empty
     const emptyCart = await page.$('.sc-your-amazon-cart-is-empty');
@@ -196,7 +196,7 @@ export async function getCart(): Promise<OperationResult> {
 export async function checkLoginStatus(): Promise<OperationResult> {
   try {
     const page = await getPage();
-    await page.goto(BASE_URL, { waitUntil: 'networkidle2' });
+    await page.goto(getBaseUrl(), { waitUntil: 'networkidle2' });
 
     const loginInfo = await page.evaluate(() => {
       const accountList = document.querySelector('#nav-link-accountList-nav-line-1');

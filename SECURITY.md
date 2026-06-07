@@ -19,7 +19,7 @@ This document outlines the security considerations, threat model, and best pract
 │ Threat Model: Personal Use Only                        │
 │                                                         │
 │ Trusted: Your local machine, your Amazon account       │
-│ Untrusted: Network, ngrok, external clients           │
+│ Untrusted: Network, optional tunnels, external clients │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -28,14 +28,14 @@ This document outlines the security considerations, threat model, and best pract
 ### ✅ Implemented Security Controls
 
 1. **Authentication**
-   - Bearer token authentication for all requests
+   - Bearer token authentication for MCP requests
    - Configurable AUTH_TOKEN via environment variables
-   - All requests require valid token
+   - MCP requests require a valid token unless `ALLOW_UNAUTHENTICATED=true`
 
 2. **Transport Security**
-   - HTTPS via ngrok tunnel (TLS 1.2+)
-   - Server-Sent Events (SSE) for real-time communication
-   - localhost-only binding (not exposed to LAN)
+   - CLI commands do not start a network server
+   - MCP server binds to `127.0.0.1` by default
+   - Streamable HTTP MCP endpoint for local clients
 
 3. **Data Protection**
    - Session data isolated in `./user-data/` directory
@@ -80,17 +80,17 @@ This document outlines the security considerations, threat model, and best pract
 
 | Threat | Impact | Likelihood | Mitigation |
 |--------|--------|------------|------------|
-| AUTH_TOKEN exposure | High | Medium | Use strong token, don't share ngrok URL |
-| Session hijacking | High | Low | Localhost binding, HTTPS via ngrok |
+| AUTH_TOKEN exposure | High | Medium | Use strong token, do not expose MCP publicly |
+| Session hijacking | High | Low | Prefer CLI or localhost-bound MCP |
 | Credential theft | High | Low | User-data directory in .gitignore |
-| Man-in-the-middle | Medium | Low | HTTPS enforced via ngrok |
+| Man-in-the-middle | Medium | Low | Avoid remote tunnels; add HTTPS/auth if tunneling |
 | Denial of service | Low | Medium | Personal use only, restart if needed |
 
 ### Out-of-Scope Threats
 
 - Multi-tenant attacks (not designed for multi-user)
 - SOC 2 / HIPAA compliance (not applicable)
-- DDoS at scale (ngrok provides some protection)
+- DDoS at scale
 - Advanced persistent threats (personal use case)
 
 ## Security Best Practices
@@ -110,10 +110,10 @@ This document outlines the security considerations, threat model, and best pract
    - Never commit `user-data/` directory
    - Verify `.gitignore` is in place
 
-3. **Protect ngrok URL**
-   - Don't share publicly
-   - Consider ngrok authentication
-   - Rotate if compromised
+3. **Protect Tunnel URLs**
+   - Do not share public tunnel URLs
+   - Add tunnel-level authentication if you expose MCP remotely
+   - Rotate URLs and tokens if compromised
 
 #### 🟡 Important
 
@@ -137,7 +137,7 @@ This document outlines the security considerations, threat model, and best pract
 
 7. **Regular Token Rotation**
    - Rotate AUTH_TOKEN monthly
-   - Update in both `.env` and Poke
+   - Update in both `.env` and your MCP client
 
 8. **Secure Your Machine**
    - Use full disk encryption
@@ -145,9 +145,10 @@ This document outlines the security considerations, threat model, and best pract
    - Keep OS updated
 
 9. **Limit Network Exposure**
-   - Use ngrok free tier (random URLs)
-   - Consider ngrok IP restrictions (paid tier)
-   - Don't run on public WiFi without VPN
+   - Prefer the CLI for personal use
+   - Keep MCP bound to `127.0.0.1`
+   - If tunneling, add tunnel-level auth and IP restrictions
+   - Do not run exposed services on public WiFi without VPN
 
 ## Vulnerability Disclosure
 
@@ -317,7 +318,7 @@ npm audit
 1. **Immediately** stop the server
 2. Generate new AUTH_TOKEN: `openssl rand -hex 32`
 3. Update `.env` with new token
-4. Update token in Poke
+4. Update token in your MCP client
 5. Restart server with new token
 6. Review logs for unauthorized access
 7. Consider rotating Amazon password if suspicious activity detected
@@ -330,12 +331,12 @@ npm audit
 4. Enable Amazon 2FA if not already enabled
 5. Restart server and log in fresh
 
-### If ngrok URL is Exposed
+### If a Tunnel URL is Exposed
 
-1. Stop ngrok tunnel
-2. Start new tunnel (free tier gets new URL automatically)
-3. Update URL in Poke
-4. Consider upgrading to ngrok paid tier for reserved domains
+1. Stop the tunnel
+2. Rotate `AUTH_TOKEN`
+3. Start a new tunnel URL if still needed
+4. Add tunnel-level authentication or IP restrictions before reconnecting
 
 ## Compliance Considerations
 
@@ -382,7 +383,7 @@ Before deploying:
 - [ ] `user-data/` in `.gitignore`
 - [ ] Dependencies audited (`npm audit`)
 - [ ] HEADLESS=true for production
-- [ ] ngrok authentication configured (optional)
+- [ ] Tunnel authentication configured if MCP is exposed remotely
 - [ ] Server logs monitoring set up
 - [ ] Regular backup plan for session data
 - [ ] Incident response plan documented

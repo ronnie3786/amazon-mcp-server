@@ -1,5 +1,5 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
-import path from 'path';
+import { getUserDataDir } from './config';
 
 let browserInstance: Browser | null = null;
 
@@ -16,7 +16,7 @@ export async function getBrowser(): Promise<Browser> {
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  const userDataDir = path.resolve(process.env.USER_DATA_DIR || './user-data');
+  const userDataDir = getUserDataDir();
   const headless = process.env.HEADLESS === 'true';
 
   console.log('Launching browser with config:', {
@@ -153,8 +153,7 @@ export async function closeBrowser(): Promise<void> {
 
         const sessionCookies = amazonCookies.filter((c: any) => !c.expires || c.expires === -1);
         if (sessionCookies.length > 0) {
-          console.log(`⚠️  Warning: ${sessionCookies.length} session-only Amazon cookies will be lost on browser close`);
-          console.log('Session cookies:', sessionCookies.map((c: any) => c.name).join(', '));
+          console.log(`Warning: ${sessionCookies.length} session-only Amazon cookies may be lost on browser close`);
         }
       }
     } catch (error) {
